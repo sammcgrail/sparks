@@ -106,6 +106,14 @@ function App() {
   const maxN = Math.max(...selectedAtom.orbitals.map(o => o.n));
   const cameraDistance = moleculeMode ? 20 : Math.max(6, maxN * 5);
 
+  const handleResetCamera = useCallback(() => {
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.target.set(0, 0, 0);
+      orbitControlsRef.current.object.position.set(0, cameraDistance * 0.4, cameraDistance);
+      orbitControlsRef.current.update();
+    }
+  }, [cameraDistance]);
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#050510' }}>
       <FPSOverlay fps={fps} pointCount={pointCount} />
@@ -166,6 +174,7 @@ function App() {
         onResetToSingle={handleResetToSingle}
         moleculeMode={moleculeMode}
         onToggleMoleculeMode={handleToggleMoleculeMode}
+        onResetCamera={handleResetCamera}
       />
     </div>
   );

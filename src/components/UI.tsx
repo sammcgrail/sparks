@@ -26,6 +26,20 @@ interface UIProps {
   onResetToSingle: () => void;
   moleculeMode: boolean;
   onToggleMoleculeMode: () => void;
+  onResetCamera: () => void;
+}
+
+/** Simple crosshair/target icon (inline SVG, no dependency needed) */
+function CrosshairIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="22" y1="12" x2="18" y2="12" />
+      <line x1="6" y1="12" x2="2" y2="12" />
+      <line x1="12" y1="6" x2="12" y2="2" />
+      <line x1="12" y1="22" x2="12" y2="18" />
+    </svg>
+  );
 }
 
 export function UI({
@@ -37,6 +51,7 @@ export function UI({
   onResetToSingle,
   moleculeMode,
   onToggleMoleculeMode,
+  onResetCamera,
 }: UIProps) {
   const isMobile = useIsMobile();
   const [infoExpanded, setInfoExpanded] = useState(false);
@@ -166,8 +181,8 @@ export function UI({
               ))}
             </div>
 
-            {/* Molecule mode toggle */}
-            <div style={{ marginTop: isMobile ? 8 : 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: isMobile ? 8 : 12 }}>
+            {/* Molecule mode + reset camera */}
+            <div style={{ marginTop: isMobile ? 8 : 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: isMobile ? 8 : 12, display: 'flex', gap: 6 }}>
               <button
                 onClick={onToggleMoleculeMode}
                 style={{
@@ -179,11 +194,30 @@ export function UI({
                   cursor: 'pointer',
                   fontSize: isMobile ? 11 : 12,
                   fontFamily: 'inherit',
-                  width: '100%',
+                  flex: 1,
                   transition: 'all 0.15s',
                 }}
               >
                 {moleculeMode ? 'Molecule Mode ON' : 'Molecule Mode'}
+              </button>
+              <button
+                onClick={onResetCamera}
+                title="Reset camera"
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  color: '#999',
+                  padding: isMobile ? '6px 8px' : '8px 10px',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <CrosshairIcon size={isMobile ? 14 : 16} />
               </button>
             </div>
 
