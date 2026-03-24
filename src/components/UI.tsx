@@ -40,6 +40,7 @@ export function UI({
 }: UIProps) {
   const isMobile = useIsMobile();
   const [infoExpanded, setInfoExpanded] = useState(false);
+  const [selectorExpanded, setSelectorExpanded] = useState(false);
 
   return (
     <div style={{
@@ -95,122 +96,154 @@ export function UI({
         border: '1px solid rgba(255,255,255,0.08)',
         maxWidth: isMobile ? undefined : 280,
       }}>
-        {!isMobile && (
+        {/* Mobile: collapsible header showing selected atom */}
+        {isMobile ? (
+          <div
+            onClick={() => setSelectorExpanded(prev => !prev)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              marginBottom: selectorExpanded ? 8 : 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#4ecdc4' }}>
+                {selectedAtom.symbol}
+              </span>
+              <span style={{ fontSize: 12, color: '#888' }}>
+                {selectedAtom.name}
+              </span>
+            </div>
+            <span style={{ fontSize: 10, color: '#555' }}>
+              {selectorExpanded ? '▾' : '▸'} atoms
+            </span>
+          </div>
+        ) : (
           <div style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             Select Atom
           </div>
         )}
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: isMobile ? 4 : 6,
-          justifyContent: isMobile ? 'center' : undefined,
-        }}>
-          {atoms.map((atom) => (
-            <button
-              key={atom.symbol}
-              onClick={() => onSelectAtom(atom)}
-              style={{
-                background: selectedAtom.symbol === atom.symbol
-                  ? 'rgba(78, 205, 196, 0.3)'
-                  : 'rgba(255,255,255,0.05)',
-                border: selectedAtom.symbol === atom.symbol
-                  ? '1px solid rgba(78, 205, 196, 0.6)'
-                  : '1px solid rgba(255,255,255,0.1)',
-                borderRadius: isMobile ? 6 : 8,
-                color: selectedAtom.symbol === atom.symbol ? '#4ecdc4' : '#ccc',
-                padding: isMobile ? '5px 8px' : '6px 10px',
-                cursor: 'pointer',
-                fontSize: isMobile ? 12 : 13,
-                fontWeight: 600,
-                fontFamily: 'inherit',
-                transition: 'all 0.15s',
-                minWidth: isMobile ? 34 : 40,
-                textAlign: 'center',
-              }}
-              title={atom.name}
-            >
-              {atom.symbol}
-            </button>
-          ))}
-        </div>
 
-        {/* Molecule mode toggle */}
-        <div style={{ marginTop: isMobile ? 8 : 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: isMobile ? 8 : 12 }}>
-          <button
-            onClick={onToggleMoleculeMode}
-            style={{
-              background: moleculeMode ? 'rgba(69, 183, 209, 0.3)' : 'rgba(255,255,255,0.05)',
-              border: moleculeMode ? '1px solid rgba(69, 183, 209, 0.6)' : '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8,
-              color: moleculeMode ? '#45b7d1' : '#999',
-              padding: isMobile ? '6px 10px' : '8px 14px',
-              cursor: 'pointer',
-              fontSize: isMobile ? 11 : 12,
-              fontFamily: 'inherit',
-              width: '100%',
-              transition: 'all 0.15s',
-            }}
-          >
-            {moleculeMode ? 'Molecule Mode ON' : 'Molecule Mode'}
-          </button>
-        </div>
+        {(!isMobile || selectorExpanded) && (
+          <>
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: isMobile ? 4 : 6,
+              justifyContent: isMobile ? 'center' : undefined,
+            }}>
+              {atoms.map((atom) => (
+                <button
+                  key={atom.symbol}
+                  onClick={() => {
+                    onSelectAtom(atom);
+                    if (isMobile) setSelectorExpanded(false);
+                  }}
+                  style={{
+                    background: selectedAtom.symbol === atom.symbol
+                      ? 'rgba(78, 205, 196, 0.3)'
+                      : 'rgba(255,255,255,0.05)',
+                    border: selectedAtom.symbol === atom.symbol
+                      ? '1px solid rgba(78, 205, 196, 0.6)'
+                      : '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: isMobile ? 6 : 8,
+                    color: selectedAtom.symbol === atom.symbol ? '#4ecdc4' : '#ccc',
+                    padding: isMobile ? '5px 8px' : '6px 10px',
+                    cursor: 'pointer',
+                    fontSize: isMobile ? 12 : 13,
+                    fontWeight: 600,
+                    fontFamily: 'inherit',
+                    transition: 'all 0.15s',
+                    minWidth: isMobile ? 34 : 40,
+                    textAlign: 'center',
+                  }}
+                  title={atom.name}
+                >
+                  {atom.symbol}
+                </button>
+              ))}
+            </div>
 
-        {moleculeMode && (
-          <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-            <button
-              onClick={onAddAtom}
-              style={{
-                background: 'rgba(78, 205, 196, 0.2)',
-                border: '1px solid rgba(78, 205, 196, 0.4)',
-                borderRadius: 8,
-                color: '#4ecdc4',
-                padding: '6px 12px',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontFamily: 'inherit',
-                flex: 1,
-              }}
-            >
-              + Add {selectedAtom.symbol}
-            </button>
-            <button
-              onClick={onClearAtoms}
-              style={{
-                background: 'rgba(231, 76, 60, 0.15)',
-                border: '1px solid rgba(231, 76, 60, 0.3)',
-                borderRadius: 8,
-                color: '#e74c3c',
-                padding: '6px 12px',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontFamily: 'inherit',
-              }}
-            >
-              Clear
-            </button>
-            <button
-              onClick={onResetToSingle}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                color: '#999',
-                padding: '6px 12px',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontFamily: 'inherit',
-              }}
-            >
-              Reset
-            </button>
-          </div>
-        )}
+            {/* Molecule mode toggle */}
+            <div style={{ marginTop: isMobile ? 8 : 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: isMobile ? 8 : 12 }}>
+              <button
+                onClick={onToggleMoleculeMode}
+                style={{
+                  background: moleculeMode ? 'rgba(69, 183, 209, 0.3)' : 'rgba(255,255,255,0.05)',
+                  border: moleculeMode ? '1px solid rgba(69, 183, 209, 0.6)' : '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  color: moleculeMode ? '#45b7d1' : '#999',
+                  padding: isMobile ? '6px 10px' : '8px 14px',
+                  cursor: 'pointer',
+                  fontSize: isMobile ? 11 : 12,
+                  fontFamily: 'inherit',
+                  width: '100%',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {moleculeMode ? 'Molecule Mode ON' : 'Molecule Mode'}
+              </button>
+            </div>
 
-        {moleculeMode && placedAtoms.length > 0 && (
-          <div style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
-            {placedAtoms.length} atom{placedAtoms.length !== 1 ? 's' : ''} placed
-          </div>
+            {moleculeMode && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                <button
+                  onClick={onAddAtom}
+                  style={{
+                    background: 'rgba(78, 205, 196, 0.2)',
+                    border: '1px solid rgba(78, 205, 196, 0.4)',
+                    borderRadius: 8,
+                    color: '#4ecdc4',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontFamily: 'inherit',
+                    flex: 1,
+                  }}
+                >
+                  + Add {selectedAtom.symbol}
+                </button>
+                <button
+                  onClick={onClearAtoms}
+                  style={{
+                    background: 'rgba(231, 76, 60, 0.15)',
+                    border: '1px solid rgba(231, 76, 60, 0.3)',
+                    borderRadius: 8,
+                    color: '#e74c3c',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={onResetToSingle}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8,
+                    color: '#999',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+            )}
+
+            {moleculeMode && placedAtoms.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
+                {placedAtoms.length} atom{placedAtoms.length !== 1 ? 's' : ''} placed
+              </div>
+            )}
+          </>
         )}
       </div>
 
