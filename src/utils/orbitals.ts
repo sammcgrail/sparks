@@ -192,6 +192,9 @@ function angularSign(l: number, m: number, theta: number, phi: number): number {
  * Generate point cloud for a single orbital using rejection sampling.
  * Returns Float32Array of [x, y, z, x, y, z, ...] positions
  * and a Float32Array of phase signs (+1 or -1) for coloring.
+ *
+ * For l>0 orbitals, uses isosurface-biased sampling to concentrate
+ * points near the surface boundary for solid-looking lobes.
  */
 export function generateOrbitalPoints(
   orbital: OrbitalConfig,
@@ -224,12 +227,20 @@ export function generateOrbitalPoints(
 
   if (maxProb === 0) maxProb = 1;
 
-  // Probability cutoff — reject very low probability points for crisper shapes
-  const probCutoff = maxProb * 0.05;
+  // Higher cutoff for crisper isosurface-like shapes
+  // s orbitals keep a lower cutoff since they're spherically symmetric
+  const cutoffFraction = l === 0 ? 0.12 : 0.22;
+  const probCutoff = maxProb * cutoffFraction;
+
+  // For l>0 orbitals, bias sampling toward the isosurface boundary
+  // Points where probability is between 20-80% of max look like the "shell"
+  const isosurfaceLow = maxProb * 0.20;
+  const isosurfaceHigh = maxProb * 0.80;
+  const useIsosurfaceBias = l > 0;
 
   let count = 0;
   let attempts = 0;
-  const maxAttempts = numPoints * 150;
+  const maxAttempts = numPoints * 200;
 
   while (count < numPoints && attempts < maxAttempts) {
     attempts++;
@@ -247,8 +258,16 @@ export function generateOrbitalPoints(
     // Skip very low probability regions for crisper orbital shapes
     if (prob < probCutoff) continue;
 
-    // Rejection sampling
-    if (Math.random() < prob / maxProb) {
+    // Rejection sampling with isosurface bias for l>0
+    let accept: boolean;
+    if (useIsosurfaceBias && prob >= isosurfaceLow && prob <= isosurfaceHigh) {
+      // Points near the isosurface boundary get 3x acceptance boost
+      accept = Math.random() < Math.min(1, (prob / maxProb) * 3.0);
+    } else {
+      accept = Math.random() < prob / maxProb;
+    }
+
+    if (accept) {
       const sinTheta = Math.sin(theta);
       const x = r * sinTheta * Math.cos(phi) + offset[0];
       const y = r * sinTheta * Math.sin(phi) + offset[1];
@@ -262,17 +281,14 @@ export function generateOrbitalPoints(
     }
   }
 
-  // Fill remaining with jittered copies of last valid point
+  // Fill remaining with jittered copies of existing points
   if (count > 0 && count < numPoints) {
-    const lastX = positions[(count - 1) * 3];
-    const lastY = positions[(count - 1) * 3 + 1];
-    const lastZ = positions[(count - 1) * 3 + 2];
-    const lastPhase = phases[count - 1];
     for (let i = count; i < numPoints; i++) {
-      positions[i * 3] = lastX + (Math.random() - 0.5) * 0.05;
-      positions[i * 3 + 1] = lastY + (Math.random() - 0.5) * 0.05;
-      positions[i * 3 + 2] = lastZ + (Math.random() - 0.5) * 0.05;
-      phases[i] = lastPhase;
+      const src = i % count;
+      positions[i * 3] = positions[src * 3] + (Math.random() - 0.5) * 0.03;
+      positions[i * 3 + 1] = positions[src * 3 + 1] + (Math.random() - 0.5) * 0.03;
+      positions[i * 3 + 2] = positions[src * 3 + 2] + (Math.random() - 0.5) * 0.03;
+      phases[i] = phases[src];
     }
   }
 
