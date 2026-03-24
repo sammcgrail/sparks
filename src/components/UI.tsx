@@ -63,7 +63,7 @@ export function UI({
       {/* Atom selector */}
       <div style={{
         position: 'absolute',
-        top: 20,
+        top: 56,
         right: 24,
         pointerEvents: 'auto',
         background: 'rgba(10, 10, 20, 0.85)',
@@ -253,7 +253,7 @@ export function UI({
         <div>Right-drag to pan</div>
       </div>
 
-      {/* Orbital legend */}
+      {/* Orbital legend with phase colors */}
       <div style={{
         position: 'absolute',
         bottom: 24,
@@ -264,43 +264,45 @@ export function UI({
         gap: 16,
         fontSize: 11,
         color: '#888',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
       }}>
-        {Object.entries(orbitalColors).map(([l, color]) => {
-          const lNum = parseInt(l);
-          // Only show legend items that are present in the selected atom
-          const hasOrbital = selectedAtom.orbitals.some(o => o.l === lNum);
-          if (!hasOrbital) return null;
-          return (
-            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: color,
-                boxShadow: `0 0 6px ${color}`,
-              }} />
-              <span>{orbitalLabels[lNum]} orbital</span>
+        {selectedAtom.orbitals.some(o => o.l === 0) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ecdc4', boxShadow: '0 0 6px #4ecdc4' }} />
+            <span>s orbital</span>
+          </div>
+        )}
+        {selectedAtom.orbitals.some(o => o.l === 1) && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b6b', boxShadow: '0 0 6px #ff6b6b' }} />
+              <span>p +phase</span>
             </div>
-          );
-        })}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ecdc4', boxShadow: '0 0 6px #4ecdc4' }} />
+              <span>p −phase</span>
+            </div>
+          </>
+        )}
+        {selectedAtom.orbitals.some(o => o.l === 2) && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffb347', boxShadow: '0 0 6px #ffb347' }} />
+              <span>d +phase</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#45b7d1', boxShadow: '0 0 6px #45b7d1' }} />
+              <span>d −phase</span>
+            </div>
+          </>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <div style={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: '#ff6b35',
-            boxShadow: '0 0 6px #ff6b35',
-          }} />
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b35', boxShadow: '0 0 6px #ff6b35' }} />
           <span>proton</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <div style={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: '#7eb8da',
-            boxShadow: '0 0 6px #7eb8da',
-          }} />
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7eb8da', boxShadow: '0 0 6px #7eb8da' }} />
           <span>neutron</span>
         </div>
       </div>

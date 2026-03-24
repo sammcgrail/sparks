@@ -2,8 +2,22 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { OrbitalConfig } from '../data/atoms';
-import { orbitalColors } from '../data/atoms';
 import { generateOrbitalPoints } from '../utils/orbitals';
+
+// Phase colors: warm = positive lobe, cool = negative lobe
+const phasePositiveColors: Record<number, string> = {
+  0: '#4ecdc4', // s - teal (no phase distinction)
+  1: '#ff6b6b', // p - red for positive
+  2: '#ffb347', // d - orange for positive
+  3: '#ff6b6b', // f - red for positive
+};
+
+const phaseNegativeColors: Record<number, string> = {
+  0: '#4ecdc4', // s - same (spherically symmetric)
+  1: '#4ecdc4', // p - teal for negative
+  2: '#45b7d1', // d - blue for negative
+  3: '#45b7d1', // f - blue for negative
+};
 
 interface OrbitalCloudProps {
   orbital: OrbitalConfig;
@@ -15,19 +29,31 @@ export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: Orbita
   const pointsRef = useRef<THREE.Points>(null);
   const timeRef = useRef(0);
 
-  // Scale point count by orbital: inner orbitals get fewer points
-  const numPoints = pointCount ?? Math.max(400, Math.min(2500, orbital.n * 800));
+  // More points for higher-n orbitals (they cover more volume)
+  const numPoints = pointCount ?? Math.max(600, Math.min(3500, orbital.n * 1000));
 
-  const { positions, basePositions, color, size } = useMemo(() => {
-    const pos = generateOrbitalPoints(orbital, numPoints, offset);
+  const { positions, basePositions, colors, size } = useMemo(() => {
+    const { positions: pos, phases } = generateOrbitalPoints(orbital, numPoints, offset);
     const base = new Float32Array(pos);
-    const col = orbitalColors[orbital.l] || '#ffffff';
-    // Inner orbitals get smaller points
-    const sz = orbital.n === 1 ? 0.04 : orbital.n === 2 ? 0.05 : orbital.n === 3 ? 0.055 : 0.06;
-    return { positions: pos, basePositions: base, color: col, size: sz };
+
+    // Generate per-point colors based on phase
+    const colArray = new Float32Array(numPoints * 3);
+    const posColor = new THREE.Color(phasePositiveColors[orbital.l] || '#ffffff');
+    const negColor = new THREE.Color(phaseNegativeColors[orbital.l] || '#ffffff');
+
+    for (let i = 0; i < numPoints; i++) {
+      const c = phases[i] >= 0 ? posColor : negColor;
+      colArray[i * 3] = c.r;
+      colArray[i * 3 + 1] = c.g;
+      colArray[i * 3 + 2] = c.b;
+    }
+
+    // Smaller points for crisper shapes
+    const sz = orbital.n === 1 ? 0.035 : orbital.n === 2 ? 0.04 : orbital.n === 3 ? 0.045 : 0.05;
+    return { positions: pos, basePositions: base, colors: colArray, size: sz };
   }, [orbital.n, orbital.l, orbital.m, numPoints, offset[0], offset[1], offset[2]]);
 
-  // Generate per-particle random offsets for animation
+  // Per-particle random offsets for gentle floating
   const randomOffsets = useMemo(() => {
     const offsets = new Float32Array(numPoints * 3);
     for (let i = 0; i < numPoints * 3; i++) {
@@ -36,7 +62,6 @@ export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: Orbita
     return offsets;
   }, [numPoints]);
 
-  // Per-particle random speeds
   const randomSpeeds = useMemo(() => {
     const speeds = new Float32Array(numPoints);
     for (let i = 0; i < numPoints; i++) {
@@ -49,12 +74,11 @@ export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: Orbita
     if (!pointsRef.current) return;
     timeRef.current += delta;
     const t = timeRef.current;
-    const geo = pointsRef.current.geometry;
-    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
+    const posAttr = pointsRef.current.geometry.getAttribute('position') as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
 
-    // Gentle floating animation - each point oscillates slightly around its base position
-    const amplitude = 0.06 * orbital.n;
+    // Gentle floating animation
+    const amplitude = 0.04 * orbital.n;
     for (let i = 0; i < numPoints; i++) {
       const speed = randomSpeeds[i];
       const phase = i * 0.1;
@@ -69,8 +93,7 @@ export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: Orbita
     posAttr.needsUpdate = true;
   });
 
-  // Create opacity based on electron count (fuller orbital = more opaque)
-  const opacity = 0.4 + (orbital.electrons / (2 * (2 * orbital.l + 1))) * 0.4;
+  const opacity = 0.5 + (orbital.electrons / (2 * (2 * orbital.l + 1))) * 0.3;
 
   return (
     <points ref={pointsRef}>
@@ -80,10 +103,15 @@ export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: Orbita
           args={[positions, 3]}
           count={numPoints}
         />
+        <bufferAttribute
+          attach="attributes-color"
+          args={[colors, 3]}
+          count={numPoints}
+        />
       </bufferGeometry>
       <pointsMaterial
         size={size}
-        color={color}
+        vertexColors
         transparent
         opacity={opacity}
         sizeAttenuation

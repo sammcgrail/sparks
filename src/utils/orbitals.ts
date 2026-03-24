@@ -2,142 +2,253 @@ import type { OrbitalConfig } from '../data/atoms';
 
 /**
  * Generate point cloud positions for a given orbital configuration.
- * Uses rejection sampling based on approximate hydrogen-like wavefunctions.
+ * Uses rejection sampling based on hydrogen-like wavefunctions
+ * with proper spherical harmonics for accurate orbital shapes.
  */
 
-// Bohr radius scale factor for visualization
-const A0 = 1.0;
+// Visualization scale factor
+const A0 = 0.8;
 
 /**
- * Radial probability function R(n,l,r)^2 * r^2
- * Simplified but captures the essential shape
+ * Associated Laguerre polynomial L_p^k(x)
+ * Using the explicit formula for small p values
  */
-function radialProbability(n: number, l: number, r: number): number {
-  const rho = (2 * r) / (n * A0);
-  // Simplified radial function: r^(2l) * exp(-rho) * Laguerre-like modulation
-  const rPart = Math.pow(r, 2 * l) * Math.exp(-rho);
-
-  // Add radial nodes for higher n
-  const nodes = n - l - 1;
-  let laguerreApprox = 1;
-  for (let k = 1; k <= nodes; k++) {
-    laguerreApprox *= (1 - rho / (2 * k + 2 * l + 1));
+function associatedLaguerre(p: number, k: number, x: number): number {
+  if (p === 0) return 1;
+  if (p === 1) return 1 + k - x;
+  if (p === 2) return 0.5 * ((k + 1) * (k + 2) - 2 * (k + 2) * x + x * x);
+  if (p === 3) {
+    return (1 / 6) * (
+      -(x * x * x) + 3 * (k + 3) * x * x
+      - 3 * (k + 2) * (k + 3) * x
+      + (k + 1) * (k + 2) * (k + 3)
+    );
   }
-
-  return rPart * laguerreApprox * laguerreApprox * r * r;
+  // Recurrence relation for higher p
+  let lkm1 = 1;
+  let lk = 1 + k - x;
+  for (let i = 2; i <= p; i++) {
+    const next = ((2 * i - 1 + k - x) * lk - (i - 1 + k) * lkm1) / i;
+    lkm1 = lk;
+    lk = next;
+  }
+  return lk;
 }
 
 /**
- * Angular probability |Y(l,m,theta,phi)|^2
- * Real spherical harmonics
+ * Radial wavefunction R(n,l,r) for hydrogen-like atom
+ * Returns R(r)^2 * r^2 (the radial probability density)
+ */
+function radialProbability(n: number, l: number, r: number): number {
+  const rho = (2 * r) / (n * A0);
+  const p = n - l - 1; // degree of Laguerre polynomial
+
+  // R(r) = (2/(n*a0))^(3/2) * sqrt((n-l-1)!/(2n*((n+l)!)^3)) * e^(-rho/2) * rho^l * L_{n-l-1}^{2l+1}(rho)
+  // We only need relative probability, so skip normalization constants
+  const radial = Math.exp(-rho / 2) * Math.pow(rho, l) * associatedLaguerre(p, 2 * l + 1, rho);
+
+  // Return R^2 * r^2 (radial probability density)
+  return radial * radial * r * r;
+}
+
+/**
+ * Angular probability |Y_l^m(theta, phi)|^2
+ * Real spherical harmonics - these define the SHAPE of each orbital
  */
 function angularProbability(l: number, m: number, theta: number, phi: number): number {
   const cosTheta = Math.cos(theta);
   const sinTheta = Math.sin(theta);
+  const sin2Theta = sinTheta * sinTheta;
+  const cos2Theta = cosTheta * cosTheta;
 
+  // s orbitals: perfect sphere
   if (l === 0) {
-    // s orbital: spherically symmetric
-    return 1.0 / (4 * Math.PI);
+    return 0.25 / Math.PI;
   }
 
+  // p orbitals: dumbbell shapes along each axis
   if (l === 1) {
     if (m === 0) {
-      // pz orbital: cos^2(theta)
-      return (3 / (4 * Math.PI)) * cosTheta * cosTheta;
+      // pz: dumbbell along z-axis — cos²θ
+      return (3 / (4 * Math.PI)) * cos2Theta;
     }
     if (m === 1) {
-      // px orbital: sin^2(theta) * cos^2(phi)
-      return (3 / (4 * Math.PI)) * sinTheta * sinTheta * Math.cos(phi) * Math.cos(phi);
+      // px: dumbbell along x-axis — sin²θ cos²φ
+      return (3 / (4 * Math.PI)) * sin2Theta * Math.cos(phi) * Math.cos(phi);
     }
     if (m === -1) {
-      // py orbital: sin^2(theta) * sin^2(phi)
-      return (3 / (4 * Math.PI)) * sinTheta * sinTheta * Math.sin(phi) * Math.sin(phi);
+      // py: dumbbell along y-axis — sin²θ sin²φ
+      return (3 / (4 * Math.PI)) * sin2Theta * Math.sin(phi) * Math.sin(phi);
     }
   }
 
+  // d orbitals: cloverleaf and donut shapes
   if (l === 2) {
-    const sin2Theta = sinTheta * sinTheta;
-    const cos2Theta = cosTheta * cosTheta;
-
     if (m === 0) {
-      // dz^2: (3cos^2(theta) - 1)^2
+      // dz²: donut with lobes along z — (3cos²θ - 1)²
       const val = 3 * cos2Theta - 1;
       return (5 / (16 * Math.PI)) * val * val;
     }
     if (m === 1) {
-      // dxz: sin(theta)*cos(theta)*cos(phi)
+      // dxz: cloverleaf in xz plane — sin²θ cos²θ cos²φ
       return (15 / (4 * Math.PI)) * sin2Theta * cos2Theta * Math.cos(phi) * Math.cos(phi);
     }
     if (m === -1) {
-      // dyz: sin(theta)*cos(theta)*sin(phi)
+      // dyz: cloverleaf in yz plane — sin²θ cos²θ sin²φ
       return (15 / (4 * Math.PI)) * sin2Theta * cos2Theta * Math.sin(phi) * Math.sin(phi);
     }
     if (m === 2) {
-      // dx^2-y^2: sin^2(theta)*cos(2*phi)
+      // dx²-y²: cloverleaf in xy plane along axes — sin²θ cos²(2φ)
       const cos2phi = Math.cos(2 * phi);
-      return (15 / (16 * Math.PI)) * sin2Theta * sin2Theta * cos2phi * cos2phi;
+      return (15 / (16 * Math.PI)) * sin2Theta * cos2phi * cos2phi;
     }
     if (m === -2) {
-      // dxy: sin^2(theta)*sin(2*phi)
+      // dxy: cloverleaf in xy plane, rotated 45° — sin²θ sin²(2φ)
       const sin2phi = Math.sin(2 * phi);
-      return (15 / (16 * Math.PI)) * sin2Theta * sin2Theta * sin2phi * sin2phi;
+      return (15 / (16 * Math.PI)) * sin2Theta * sin2phi * sin2phi;
     }
   }
 
-  // Fallback: spherical
-  return 1.0 / (4 * Math.PI);
+  // f orbitals (l=3): complex multi-lobed shapes
+  if (l === 3) {
+    if (m === 0) {
+      // fz³: triple lobes along z
+      const val = 5 * cos2Theta * cosTheta - 3 * cosTheta;
+      return (7 / (16 * Math.PI)) * val * val;
+    }
+    if (m === 1) {
+      // fxz²
+      const val = (5 * cos2Theta - 1) * sinTheta * Math.cos(phi);
+      return (21 / (32 * Math.PI)) * val * val;
+    }
+    if (m === -1) {
+      // fyz²
+      const val = (5 * cos2Theta - 1) * sinTheta * Math.sin(phi);
+      return (21 / (32 * Math.PI)) * val * val;
+    }
+    if (m === 2) {
+      // fz(x²-y²)
+      const val = sin2Theta * cosTheta * Math.cos(2 * phi);
+      return (105 / (16 * Math.PI)) * val * val;
+    }
+    if (m === -2) {
+      // fxyz
+      const val = sin2Theta * cosTheta * Math.sin(2 * phi);
+      return (105 / (16 * Math.PI)) * val * val;
+    }
+    if (m === 3) {
+      // fx(x²-3y²)
+      const val = sinTheta * sin2Theta * Math.cos(3 * phi);
+      return (35 / (32 * Math.PI)) * val * val;
+    }
+    if (m === -3) {
+      // fy(3x²-y²)
+      const val = sinTheta * sin2Theta * Math.sin(3 * phi);
+      return (35 / (32 * Math.PI)) * val * val;
+    }
+  }
+
+  return 0.25 / Math.PI;
+}
+
+/**
+ * Get the sign of the angular wavefunction Y(l,m,theta,phi)
+ * Used for phase coloring (positive lobe vs negative lobe)
+ */
+function angularSign(l: number, m: number, theta: number, phi: number): number {
+  const cosTheta = Math.cos(theta);
+  const sinTheta = Math.sin(theta);
+
+  if (l === 0) return 1;
+
+  if (l === 1) {
+    if (m === 0) return cosTheta >= 0 ? 1 : -1; // pz
+    if (m === 1) return Math.cos(phi) >= 0 ? 1 : -1; // px
+    if (m === -1) return Math.sin(phi) >= 0 ? 1 : -1; // py
+  }
+
+  if (l === 2) {
+    if (m === 0) return (3 * cosTheta * cosTheta - 1) >= 0 ? 1 : -1; // dz²
+    if (m === 1) return (cosTheta * Math.cos(phi)) >= 0 ? 1 : -1; // dxz
+    if (m === -1) return (cosTheta * Math.sin(phi)) >= 0 ? 1 : -1; // dyz
+    if (m === 2) return Math.cos(2 * phi) >= 0 ? 1 : -1; // dx²-y²
+    if (m === -2) return Math.sin(2 * phi) >= 0 ? 1 : -1; // dxy
+  }
+
+  if (l === 3) {
+    if (m === 0) return (5 * cosTheta * cosTheta * cosTheta - 3 * cosTheta) >= 0 ? 1 : -1;
+    if (m === 1) return ((5 * cosTheta * cosTheta - 1) * sinTheta * Math.cos(phi)) >= 0 ? 1 : -1;
+    if (m === -1) return ((5 * cosTheta * cosTheta - 1) * sinTheta * Math.sin(phi)) >= 0 ? 1 : -1;
+    if (m === 2) return (sinTheta * sinTheta * cosTheta * Math.cos(2 * phi)) >= 0 ? 1 : -1;
+    if (m === -2) return (sinTheta * sinTheta * cosTheta * Math.sin(2 * phi)) >= 0 ? 1 : -1;
+    if (m === 3) return (sinTheta * sinTheta * sinTheta * Math.cos(3 * phi)) >= 0 ? 1 : -1;
+    if (m === -3) return (sinTheta * sinTheta * sinTheta * Math.sin(3 * phi)) >= 0 ? 1 : -1;
+  }
+
+  return 1;
 }
 
 /**
  * Generate point cloud for a single orbital using rejection sampling.
- * Returns Float32Array of [x, y, z, x, y, z, ...] positions.
+ * Returns Float32Array of [x, y, z, x, y, z, ...] positions
+ * and a Float32Array of phase signs (+1 or -1) for coloring.
  */
 export function generateOrbitalPoints(
   orbital: OrbitalConfig,
   numPoints: number,
   offset: [number, number, number] = [0, 0, 0]
-): Float32Array {
+): { positions: Float32Array; phases: Float32Array } {
   const { n, l, m } = orbital;
   const positions = new Float32Array(numPoints * 3);
+  const phases = new Float32Array(numPoints);
 
-  // Maximum radius to sample (scales with n^2)
-  const rMax = n * n * A0 * 3.5;
+  // Tighter radius bound — most probability is within ~n² * 2 * a0
+  const rMax = n * n * A0 * 2.5;
 
-  // Find approximate max probability for rejection sampling
+  // Find max probability for rejection sampling by scanning
   let maxProb = 0;
-  for (let i = 0; i < 200; i++) {
-    const r = (i / 200) * rMax;
+  const scanSteps = 500;
+  for (let ir = 0; ir < scanSteps; ir++) {
+    const r = (ir / scanSteps) * rMax;
     const radProb = radialProbability(n, l, r);
-    if (radProb > maxProb) maxProb = radProb;
+    for (let it = 0; it < 30; it++) {
+      const theta = (it / 30) * Math.PI;
+      for (let ip = 0; ip < 30; ip++) {
+        const phi = (ip / 30) * 2 * Math.PI;
+        const angProb = angularProbability(l, m, theta, phi);
+        const prob = radProb * angProb;
+        if (prob > maxProb) maxProb = prob;
+      }
+    }
   }
-  // Multiply by max angular contribution
-  if (l === 0) maxProb *= 1.0 / (4 * Math.PI);
-  else if (l === 1) maxProb *= 3 / (4 * Math.PI);
-  else if (l === 2) maxProb *= 15 / (4 * Math.PI);
-  else maxProb *= 1.0;
 
   if (maxProb === 0) maxProb = 1;
 
+  // Probability cutoff — reject very low probability points for crisper shapes
+  const probCutoff = maxProb * 0.05;
+
   let count = 0;
   let attempts = 0;
-  const maxAttempts = numPoints * 50;
+  const maxAttempts = numPoints * 150;
 
   while (count < numPoints && attempts < maxAttempts) {
     attempts++;
 
-    // Random point in spherical coordinates
-    const r = Math.random() * rMax;
-    const theta = Math.acos(2 * Math.random() - 1); // uniform on sphere
+    // Sample r from r² distribution (concentrates near peak)
+    const u = Math.random();
+    const r = rMax * Math.cbrt(u); // cube root for r² weighting
+    const theta = Math.acos(2 * Math.random() - 1);
     const phi = Math.random() * 2 * Math.PI;
 
-    // Calculate probability density
     const radProb = radialProbability(n, l, r);
     const angProb = angularProbability(l, m, theta, phi);
     const prob = radProb * angProb;
 
+    // Skip very low probability regions for crisper orbital shapes
+    if (prob < probCutoff) continue;
+
     // Rejection sampling
     if (Math.random() < prob / maxProb) {
-      // Convert to Cartesian
       const sinTheta = Math.sin(theta);
       const x = r * sinTheta * Math.cos(phi) + offset[0];
       const y = r * sinTheta * Math.sin(phi) + offset[1];
@@ -146,23 +257,26 @@ export function generateOrbitalPoints(
       positions[count * 3] = x;
       positions[count * 3 + 1] = y;
       positions[count * 3 + 2] = z;
+      phases[count] = angularSign(l, m, theta, phi);
       count++;
     }
   }
 
-  // Fill remaining with last valid point if we ran out of attempts
+  // Fill remaining with jittered copies of last valid point
   if (count > 0 && count < numPoints) {
     const lastX = positions[(count - 1) * 3];
     const lastY = positions[(count - 1) * 3 + 1];
     const lastZ = positions[(count - 1) * 3 + 2];
+    const lastPhase = phases[count - 1];
     for (let i = count; i < numPoints; i++) {
-      positions[i * 3] = lastX + (Math.random() - 0.5) * 0.1;
-      positions[i * 3 + 1] = lastY + (Math.random() - 0.5) * 0.1;
-      positions[i * 3 + 2] = lastZ + (Math.random() - 0.5) * 0.1;
+      positions[i * 3] = lastX + (Math.random() - 0.5) * 0.05;
+      positions[i * 3 + 1] = lastY + (Math.random() - 0.5) * 0.05;
+      positions[i * 3 + 2] = lastZ + (Math.random() - 0.5) * 0.05;
+      phases[i] = lastPhase;
     }
   }
 
-  return positions;
+  return { positions, phases };
 }
 
 /**
@@ -174,12 +288,11 @@ export function generateNucleusPositions(
   offset: [number, number, number] = [0, 0, 0]
 ): { protonPositions: Float32Array; neutronPositions: Float32Array } {
   const total = protons + neutrons;
-  const nucleusRadius = Math.pow(total, 1 / 3) * 0.15;
+  const nucleusRadius = Math.pow(total, 1 / 3) * 0.12;
 
   const protonPositions = new Float32Array(protons * 3);
   const neutronPositions = new Float32Array(neutrons * 3);
 
-  // Place nucleons in a roughly spherical cluster
   for (let i = 0; i < protons; i++) {
     const r = Math.random() * nucleusRadius;
     const theta = Math.acos(2 * Math.random() - 1);

@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { useState, useCallback, useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { AtomViewer } from './components/AtomViewer';
 import { MoleculeBuilder } from './components/MoleculeBuilder';
@@ -7,8 +7,28 @@ import type { PlacedAtom } from './components/MoleculeBuilder';
 import { Background } from './components/Background';
 import { Effects } from './components/Effects';
 import { UI } from './components/UI';
+import { FPSOverlay } from './components/FPSMeter';
 import { atoms } from './data/atoms';
 import type { AtomData } from './data/atoms';
+
+/** In-canvas component to track FPS */
+function FPSTracker({ onFps }: { onFps: (fps: number) => void }) {
+  const frames = useRef(0);
+  const lastTime = useRef(performance.now());
+
+  useFrame(() => {
+    frames.current++;
+    const now = performance.now();
+    if (now - lastTime.current >= 500) {
+      const elapsed = (now - lastTime.current) / 1000;
+      onFps(Math.round(frames.current / elapsed));
+      frames.current = 0;
+      lastTime.current = now;
+    }
+  });
+
+  return null;
+}
 
 function App() {
   const [selectedAtom, setSelectedAtom] = useState<AtomData>(
@@ -17,6 +37,7 @@ function App() {
   const [moleculeMode, setMoleculeMode] = useState(false);
   const [placedAtoms, setPlacedAtoms] = useState<PlacedAtom[]>([]);
   const [nextPlacementIndex, setNextPlacementIndex] = useState(0);
+  const [fps, setFps] = useState(0);
 
   const handleSelectAtom = useCallback((atom: AtomData) => {
     setSelectedAtom(atom);
@@ -61,6 +82,9 @@ function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#050510' }}>
+      {/* FPS overlay - top right */}
+      <FPSOverlay fps={fps} />
+
       <Canvas
         camera={{
           position: [0, cameraDistance * 0.4, cameraDistance],
@@ -82,6 +106,7 @@ function App() {
         <pointLight position={[-5, -5, 5]} intensity={0.3} color="#4ecdc4" />
 
         <Background />
+        <FPSTracker onFps={setFps} />
 
         {moleculeMode && placedAtoms.length > 0 ? (
           <MoleculeBuilder placedAtoms={placedAtoms} />

@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { generateNucleusPositions } from '../utils/orbitals';
@@ -9,7 +9,6 @@ interface NucleusProps {
   offset?: [number, number, number];
 }
 
-const tempObject = new THREE.Object3D();
 const protonColor = new THREE.Color('#ff6b35');
 const neutronColor = new THREE.Color('#7eb8da');
 
@@ -18,6 +17,8 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
   const neutronMeshRef = useRef<THREE.InstancedMesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const timeRef = useRef(0);
+  // Per-instance tempObject to avoid shared state race condition
+  const tempObject = useMemo(() => new THREE.Object3D(), []);
 
   const { protonPositions, neutronPositions } = useMemo(
     () => generateNucleusPositions(protons, neutrons, offset),
@@ -27,8 +28,8 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
   const nucleonSize = Math.max(0.06, 0.12 - (protons + neutrons) * 0.001);
   const glowSize = Math.pow(protons + neutrons, 1 / 3) * 0.25 + 0.2;
 
-  // Initialize instanced meshes
-  useMemo(() => {
+  // Initialize instanced meshes via useEffect (not useMemo)
+  useEffect(() => {
     if (protonMeshRef.current) {
       for (let i = 0; i < protons; i++) {
         tempObject.position.set(
@@ -44,9 +45,9 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
       if (protonMeshRef.current.instanceColor)
         protonMeshRef.current.instanceColor.needsUpdate = true;
     }
-  }, [protonPositions, protons]);
+  }, [protonPositions, protons, tempObject]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (neutronMeshRef.current) {
       for (let i = 0; i < neutrons; i++) {
         tempObject.position.set(
@@ -62,12 +63,11 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
       if (neutronMeshRef.current.instanceColor)
         neutronMeshRef.current.instanceColor.needsUpdate = true;
     }
-  }, [neutronPositions, neutrons]);
+  }, [neutronPositions, neutrons, tempObject]);
 
   useFrame((_, delta) => {
     timeRef.current += delta;
 
-    // Gently pulse the nucleus glow
     if (glowRef.current) {
       const scale = glowSize * (1 + Math.sin(timeRef.current * 2) * 0.08);
       glowRef.current.scale.setScalar(scale);
@@ -105,7 +105,6 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
 
   return (
     <group>
-      {/* Nucleus glow */}
       <mesh ref={glowRef} position={offset}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
@@ -117,7 +116,6 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
         />
       </mesh>
 
-      {/* Inner bright core */}
       <mesh position={offset}>
         <sphereGeometry args={[glowSize * 0.3, 16, 16]} />
         <meshBasicMaterial
@@ -127,7 +125,6 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
         />
       </mesh>
 
-      {/* Protons */}
       {protons > 0 && (
         <instancedMesh ref={protonMeshRef} args={[undefined, undefined, protons]}>
           <sphereGeometry args={[nucleonSize, 8, 8]} />
@@ -140,7 +137,6 @@ export function Nucleus({ protons, neutrons, offset = [0, 0, 0] }: NucleusProps)
         </instancedMesh>
       )}
 
-      {/* Neutrons */}
       {neutrons > 0 && (
         <instancedMesh ref={neutronMeshRef} args={[undefined, undefined, neutrons]}>
           <sphereGeometry args={[nucleonSize, 8, 8]} />
