@@ -1,0 +1,6 @@
+services:
+  sparks:
+    build: .
+    ports:
+      - "8780:8080"
+    restart: unless-stopped
