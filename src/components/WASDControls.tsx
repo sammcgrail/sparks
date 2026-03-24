@@ -1,26 +1,34 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 const MOVE_SPEED = 8;
 
+interface WASDControlsProps {
+  /** Ref to OrbitControls — WASD moves both camera and target together */
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+}
+
 /**
- * WASD camera movement controls.
- * W/S = move forward/backward along the ground plane (XZ)
- * A/D = strafe (pan) left/right
- * Q/Space = up, E/Shift = down
+ * WASD camera movement that works WITH OrbitControls.
  *
- * Movement is projected onto the XZ plane so W never "zooms in"
- * (which happens when the camera is angled downward and you move
- * along the raw camera direction vector).
+ * The key insight: OrbitControls orbits the camera around a target point.
+ * If we only move the camera, OrbitControls pulls it back toward the target.
+ * Fix: move BOTH camera.position AND controls.target by the same delta.
+ * This translates the entire orbit rig through the scene.
+ *
+ * W/S = forward/backward on XZ ground plane
+ * A/D = strafe left/right
+ * Q/Space = up, E/Shift = down
  */
-export function WASDControls() {
+export function WASDControls({ controlsRef }: WASDControlsProps) {
   const { camera } = useThree();
   const keys = useRef<Set<string>>(new Set());
   const forward = useRef(new THREE.Vector3());
   const right = useRef(new THREE.Vector3());
-  // Smooth velocity to eliminate the initial "bump" when starting movement
   const velocity = useRef(new THREE.Vector3());
+  const moveDelta = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -41,41 +49,43 @@ export function WASDControls() {
 
   useFrame((_, delta) => {
     const k = keys.current;
-
-    // Compute target velocity based on pressed keys
     const targetVel = new THREE.Vector3();
 
     if (k.size > 0) {
-      // Get camera forward direction projected onto XZ plane (ground plane movement)
+      // Forward direction projected onto XZ ground plane
       camera.getWorldDirection(forward.current);
-      forward.current.y = 0; // Project to ground plane
+      forward.current.y = 0;
       forward.current.normalize();
 
-      // Right vector is perpendicular to forward on the ground plane
       right.current.crossVectors(forward.current, camera.up).normalize();
 
       const speed = MOVE_SPEED;
 
-      // W/S = forward/backward along XZ ground plane (not into the ground)
       if (k.has('w')) targetVel.addScaledVector(forward.current, speed);
       if (k.has('s')) targetVel.addScaledVector(forward.current, -speed);
-
-      // A/D = strafe left/right
       if (k.has('a')) targetVel.addScaledVector(right.current, -speed);
       if (k.has('d')) targetVel.addScaledVector(right.current, speed);
-
-      // Q/Space = up, E/Shift = down
       if (k.has('q') || k.has(' ')) targetVel.y += speed;
       if (k.has('e') || k.has('shift')) targetVel.y -= speed;
     }
 
-    // Smooth interpolation toward target velocity (eliminates initial bump)
-    const smoothing = 1 - Math.exp(-12 * delta); // ~12Hz smoothing
+    // Smooth interpolation (eliminates initial bump)
+    const smoothing = 1 - Math.exp(-12 * delta);
     velocity.current.lerp(targetVel, smoothing);
 
-    // Apply velocity
     if (velocity.current.lengthSq() > 0.001) {
-      camera.position.addScaledVector(velocity.current, delta);
+      // Compute the movement delta for this frame
+      moveDelta.current.copy(velocity.current).multiplyScalar(delta);
+
+      // Move camera
+      camera.position.add(moveDelta.current);
+
+      // Move OrbitControls target by the SAME delta — this is the fix.
+      // Without this, OrbitControls fights WASD because it keeps
+      // orbiting around the old (0,0,0) target.
+      if (controlsRef.current) {
+        controlsRef.current.target.add(moveDelta.current);
+      }
     }
   });
 
