@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { AtomViewer } from './components/AtomViewer';
 import { MoleculeBuilder } from './components/MoleculeBuilder';
 import type { PlacedAtom } from './components/MoleculeBuilder';
@@ -39,6 +40,7 @@ function App() {
   const [placedAtoms, setPlacedAtoms] = useState<PlacedAtom[]>([]);
   const [nextPlacementIndex, setNextPlacementIndex] = useState(0);
   const [fps, setFps] = useState(0);
+  const orbitControlsRef = useRef<OrbitControlsImpl>(null);
 
   const handleSelectAtom = useCallback((atom: AtomData) => {
     setSelectedAtom(atom);
@@ -117,9 +119,10 @@ function App() {
 
         <Effects />
 
-        <WASDControls />
+        <WASDControls controlsRef={orbitControlsRef} />
 
         <OrbitControls
+          ref={orbitControlsRef}
           enableDamping
           dampingFactor={0.05}
           rotateSpeed={0.5}
