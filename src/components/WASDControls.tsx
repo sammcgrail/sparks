@@ -4,23 +4,25 @@ import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 const MOVE_SPEED = 8;
+// Only these keys drive camera movement — ignore everything else
+const MOVEMENT_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', ' ', 'shift']);
 
 interface WASDControlsProps {
-  /** Ref to OrbitControls — WASD moves both camera and target together */
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
 }
 
 /**
  * WASD camera movement that works WITH OrbitControls.
  *
- * The key insight: OrbitControls orbits the camera around a target point.
- * If we only move the camera, OrbitControls pulls it back toward the target.
- * Fix: move BOTH camera.position AND controls.target by the same delta.
- * This translates the entire orbit rig through the scene.
+ * Moves both camera.position AND controls.target by the same delta
+ * so the orbit rig translates through the scene as a unit.
  *
- * W/S = forward/backward on XZ ground plane
- * A/D = strafe left/right
- * Q/Space = up, E/Shift = down
+ * Stuck-key prevention:
+ * - Only tracks WASD/Q/E/Space/Shift (ignores all other keys)
+ * - Clears all keys on window blur, visibilitychange, and pointerdown
+ *   (covers tab-away, alt-tab, clicking UI buttons, etc.)
+ * - Smooth velocity decay means even a stuck key resolves quickly
+ *   when the clear fires
  */
 export function WASDControls({ controlsRef }: WASDControlsProps) {
   const { camera } = useThree();
@@ -31,19 +33,42 @@ export function WASDControls({ controlsRef }: WASDControlsProps) {
   const moveDelta = useRef(new THREE.Vector3());
 
   useEffect(() => {
+    const clearKeys = () => {
+      keys.current.clear();
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      keys.current.add(e.key.toLowerCase());
+      const key = e.key.toLowerCase();
+      if (MOVEMENT_KEYS.has(key)) {
+        keys.current.add(key);
+      }
     };
+
     const handleKeyUp = (e: KeyboardEvent) => {
       keys.current.delete(e.key.toLowerCase());
     };
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) clearKeys();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    // Clear keys when window loses focus (alt-tab, clicking another window)
+    window.addEventListener('blur', clearKeys);
+    // Clear keys when tab becomes hidden
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Clear keys when user clicks UI elements (pointer goes to buttons etc.)
+    // Use capture phase so it fires before the click handler
+    window.addEventListener('pointerdown', clearKeys, true);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', clearKeys);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pointerdown', clearKeys, true);
     };
   }, []);
 
@@ -52,7 +77,6 @@ export function WASDControls({ controlsRef }: WASDControlsProps) {
     const targetVel = new THREE.Vector3();
 
     if (k.size > 0) {
-      // Forward direction projected onto XZ ground plane
       camera.getWorldDirection(forward.current);
       forward.current.y = 0;
       forward.current.normalize();
@@ -69,20 +93,16 @@ export function WASDControls({ controlsRef }: WASDControlsProps) {
       if (k.has('e') || k.has('shift')) targetVel.y -= speed;
     }
 
-    // Smooth interpolation (eliminates initial bump)
+    // Smooth interpolation — also means stuck keys decelerate smoothly
+    // when clearKeys fires
     const smoothing = 1 - Math.exp(-12 * delta);
     velocity.current.lerp(targetVel, smoothing);
 
     if (velocity.current.lengthSq() > 0.001) {
-      // Compute the movement delta for this frame
       moveDelta.current.copy(velocity.current).multiplyScalar(delta);
 
-      // Move camera
       camera.position.add(moveDelta.current);
 
-      // Move OrbitControls target by the SAME delta — this is the fix.
-      // Without this, OrbitControls fights WASD because it keeps
-      // orbiting around the old (0,0,0) target.
       if (controlsRef.current) {
         controlsRef.current.target.add(moveDelta.current);
       }
