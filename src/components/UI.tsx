@@ -250,7 +250,7 @@ export function UI({
       }}>
         <div>Drag to rotate · Scroll to zoom</div>
         <div>Right-drag to pan</div>
-        <div>WASD move · Q/E up/down</div>
+        <div>WASD move · Q up · E down</div>
       </div>
 
       {/* Orbital legend with phase colors */}

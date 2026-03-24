@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 const MOVE_SPEED = 8;
-// Only these keys drive camera movement — ignore everything else
-const MOVEMENT_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', ' ', 'shift']);
+// Movement keys — Shift REMOVED to avoid conflict with Cmd+Shift+4 (screenshot)
+// Down is now E only (Q = up, E = down, or Space = up)
+const MOVEMENT_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', ' ']);
 
 interface WASDControlsProps {
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
@@ -14,15 +15,14 @@ interface WASDControlsProps {
 /**
  * WASD camera movement that works WITH OrbitControls.
  *
- * Moves both camera.position AND controls.target by the same delta
- * so the orbit rig translates through the scene as a unit.
+ * W/S = forward/backward on XZ ground plane
+ * A/D = strafe left/right
+ * Q/Space = up, E = down
  *
- * Stuck-key prevention:
- * - Only tracks WASD/Q/E/Space/Shift (ignores all other keys)
- * - Clears all keys on window blur, visibilitychange, and pointerdown
- *   (covers tab-away, alt-tab, clicking UI buttons, etc.)
- * - Smooth velocity decay means even a stuck key resolves quickly
- *   when the clear fires
+ * Modifier-key awareness:
+ * - Any keydown with meta/ctrl/alt held → clear all movement keys
+ *   (prevents Cmd+Shift+4 screenshot from triggering downward movement)
+ * - Shift removed from movement keys entirely to avoid OS shortcut conflicts
  */
 export function WASDControls({ controlsRef }: WASDControlsProps) {
   const { camera } = useThree();
@@ -39,6 +39,14 @@ export function WASDControls({ controlsRef }: WASDControlsProps) {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // If any system modifier is held, clear all movement — user is doing
+      // a keyboard shortcut (Cmd+Shift+4, Ctrl+C, Alt+Tab, etc.), not WASD
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        clearKeys();
+        return;
+      }
+
       const key = e.key.toLowerCase();
       if (MOVEMENT_KEYS.has(key)) {
         keys.current.add(key);
@@ -55,12 +63,8 @@ export function WASDControls({ controlsRef }: WASDControlsProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    // Clear keys when window loses focus (alt-tab, clicking another window)
     window.addEventListener('blur', clearKeys);
-    // Clear keys when tab becomes hidden
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    // Clear keys when user clicks UI elements (pointer goes to buttons etc.)
-    // Use capture phase so it fires before the click handler
     window.addEventListener('pointerdown', clearKeys, true);
 
     return () => {
@@ -90,11 +94,9 @@ export function WASDControls({ controlsRef }: WASDControlsProps) {
       if (k.has('a')) targetVel.addScaledVector(right.current, -speed);
       if (k.has('d')) targetVel.addScaledVector(right.current, speed);
       if (k.has('q') || k.has(' ')) targetVel.y += speed;
-      if (k.has('e') || k.has('shift')) targetVel.y -= speed;
+      if (k.has('e')) targetVel.y -= speed;
     }
 
-    // Smooth interpolation — also means stuck keys decelerate smoothly
-    // when clearKeys fires
     const smoothing = 1 - Math.exp(-12 * delta);
     velocity.current.lerp(targetVel, smoothing);
 
