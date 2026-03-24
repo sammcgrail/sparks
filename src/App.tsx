@@ -8,6 +8,7 @@ import { Background } from './components/Background';
 import { Effects } from './components/Effects';
 import { UI } from './components/UI';
 import { FPSOverlay } from './components/FPSMeter';
+import { WASDControls } from './components/WASDControls';
 import { atoms } from './data/atoms';
 import type { AtomData } from './data/atoms';
 
@@ -115,6 +116,8 @@ function App() {
         )}
 
         <Effects />
+
+        <WASDControls />
 
         <OrbitControls
           enableDamping

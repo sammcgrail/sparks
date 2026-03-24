@@ -1,73 +1,55 @@
-# React + TypeScript + Vite
+# SPARKS ⚛️
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+3D atomic viewer — explore atoms, electron orbitals, and molecules in your browser.
 
-Currently, two official plugins are available:
+**Live:** [sebland.com/sparks](https://sebland.com/sparks)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What is this?
 
-## React Compiler
+An interactive 3D visualization of quantum mechanical electron orbitals. Select an atom and watch its electron probability clouds rendered as point clouds with accurate orbital shapes — s (spheres), p (dumbbells), d (cloverleafs) — based on real hydrogen-like wavefunctions and spherical harmonics.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- 12 atoms from Hydrogen to Iron
+- Quantum mechanical orbital shapes (s, p, d) via rejection sampling from |Y(l,m)|^2
+- Phase coloring — positive/negative lobes in warm/cool colors
+- GPU-accelerated particle animation (vertex shader)
+- Bloom glow post-processing
+- Molecule mode — place multiple atoms in 3D space
+- WASD + Q/E camera movement
+- Mouse orbit, zoom, pan
+- FPS meter
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Controls
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+| Input | Action |
+|-------|--------|
+| Mouse drag | Rotate |
+| Scroll | Zoom |
+| Right-drag | Pan |
+| W/S | Move forward/backward |
+| A/D | Strafe left/right |
+| Q/E | Move up/down |
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Tech Stack
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- React + TypeScript + Vite
+- React Three Fiber + Three.js
+- Custom GLSL vertex/fragment shaders
+- @react-three/postprocessing (Bloom, Vignette)
+
+## Development
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Deploy
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
+# Copy dist/ to /root/box/app/static/sparks/
+cd /root/box && bash deploy-static.sh
+docker compose build web && docker compose up -d web
 ```
