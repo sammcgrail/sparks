@@ -4,10 +4,7 @@
  */
 export function FPSOverlay({ fps, pointCount }: { fps: number; pointCount: number }) {
   const color = fps >= 50 ? '#4ade80' : fps >= 30 ? '#facc15' : '#ef4444';
-  // Format point count with K suffix for readability
-  const pointLabel = pointCount >= 1000
-    ? `${(pointCount / 1000).toFixed(1)}K`
-    : `${pointCount}`;
+  const pointLabel = pointCount.toLocaleString();
 
   return (
     <div style={{
@@ -26,9 +23,9 @@ export function FPSOverlay({ fps, pointCount }: { fps: number; pointCount: numbe
       gap: 12,
       alignItems: 'center',
       // Fixed minimum width prevents the counter from bouncing when values change
-      minWidth: 140,
+      minWidth: 170,
     }}>
-      <span style={{ color: '#888', minWidth: 60 }}>
+      <span style={{ color: '#888', minWidth: 80 }}>
         {pointLabel} pts
       </span>
       <span style={{ color, minWidth: 50, textAlign: 'right' }}>
