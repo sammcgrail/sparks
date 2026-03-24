@@ -76,8 +76,8 @@ interface OrbitalCloudProps {
 export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: OrbitalCloudProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
 
-  // Reduced point count for performance with tighter distribution
-  const numPoints = pointCount ?? Math.max(500, Math.min(2000, orbital.n * 700));
+  // Higher point count for dense, solid-looking orbital lobes
+  const numPoints = pointCount ?? Math.max(1500, Math.min(5000, orbital.n * 1500));
 
   const { geometry, amplitude, pointSize } = useMemo(() => {
     const { positions, phases } = generateOrbitalPoints(orbital, numPoints, offset);
@@ -112,8 +112,9 @@ export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: Orbita
     geo.setAttribute('randomSpeed', new THREE.BufferAttribute(randSpeeds, 1));
 
     // Larger point size so points overlap to form solid-looking regions
-    const sz = orbital.n === 1 ? 0.08 : orbital.n === 2 ? 0.10 : orbital.n === 3 ? 0.12 : 0.14;
-    const amp = 0.04 * orbital.n;
+    const sz = orbital.n === 1 ? 0.10 : orbital.n === 2 ? 0.12 : orbital.n === 3 ? 0.14 : 0.16;
+    // Very subtle animation amplitude — keeps lobes crisp while showing quantum "breathing"
+    const amp = 0.012 * orbital.n;
 
     return { geometry: geo, amplitude: amp, pointSize: sz };
   }, [orbital.n, orbital.l, orbital.m, numPoints, offset[0], offset[1], offset[2]]);

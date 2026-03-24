@@ -248,9 +248,9 @@ export function UI({
         textAlign: 'right',
         lineHeight: 1.6,
       }}>
-        <div>Drag to rotate</div>
-        <div>Scroll to zoom</div>
+        <div>Drag to rotate · Scroll to zoom</div>
         <div>Right-drag to pan</div>
+        <div>WASD move · Q/E up/down</div>
       </div>
 
       {/* Orbital legend with phase colors */}

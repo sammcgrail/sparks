@@ -227,15 +227,15 @@ export function generateOrbitalPoints(
 
   if (maxProb === 0) maxProb = 1;
 
-  // Higher cutoff for crisper isosurface-like shapes
-  // s orbitals keep a lower cutoff since they're spherically symmetric
-  const cutoffFraction = l === 0 ? 0.12 : 0.22;
+  // Cutoff: discard points below this fraction of max probability
+  // Higher = crisper but needs more points to fill; lower = blobbier
+  const cutoffFraction = l === 0 ? 0.10 : 0.15;
   const probCutoff = maxProb * cutoffFraction;
 
-  // For l>0 orbitals, bias sampling toward the isosurface boundary
-  // Points where probability is between 20-80% of max look like the "shell"
-  const isosurfaceLow = maxProb * 0.20;
-  const isosurfaceHigh = maxProb * 0.80;
+  // For l>0 orbitals, strongly bias sampling toward the isosurface boundary
+  // Tight band (25-70% of max) concentrates points on the orbital surface
+  const isosurfaceLow = maxProb * 0.25;
+  const isosurfaceHigh = maxProb * 0.70;
   const useIsosurfaceBias = l > 0;
 
   let count = 0;
@@ -258,11 +258,11 @@ export function generateOrbitalPoints(
     // Skip very low probability regions for crisper orbital shapes
     if (prob < probCutoff) continue;
 
-    // Rejection sampling with isosurface bias for l>0
+    // Rejection sampling with strong isosurface bias for l>0
     let accept: boolean;
     if (useIsosurfaceBias && prob >= isosurfaceLow && prob <= isosurfaceHigh) {
-      // Points near the isosurface boundary get 3x acceptance boost
-      accept = Math.random() < Math.min(1, (prob / maxProb) * 3.0);
+      // Points near the isosurface boundary get 5x acceptance boost for solid shell look
+      accept = Math.random() < Math.min(1, (prob / maxProb) * 5.0);
     } else {
       accept = Math.random() < prob / maxProb;
     }
