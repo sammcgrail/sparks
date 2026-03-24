@@ -115,7 +115,7 @@ function App() {
   }, [cameraDistance]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#050510' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#050510', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}>
       <FPSOverlay fps={fps} pointCount={pointCount} />
 
       <Canvas
