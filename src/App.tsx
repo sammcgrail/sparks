@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -32,6 +32,21 @@ function FPSTracker({ onFps }: { onFps: (fps: number) => void }) {
   return null;
 }
 
+/**
+ * Estimate total rendered points for the stats overlay.
+ * This mirrors the budget logic in AtomViewer.
+ */
+const MAX_TOTAL_POINTS = 50000;
+
+function estimatePointCount(atom: AtomData): number {
+  const numOrbitals = atom.orbitals.length;
+  const budgetPerOrbital = Math.floor(MAX_TOTAL_POINTS / numOrbitals);
+  return atom.orbitals.reduce((sum, orbital) => {
+    const baseCount = Math.max(1500, Math.min(8000, orbital.n * 2500));
+    return sum + Math.min(baseCount, Math.max(1500, budgetPerOrbital));
+  }, 0);
+}
+
 function App() {
   const [selectedAtom, setSelectedAtom] = useState<AtomData>(
     atoms.find(a => a.symbol === 'C')!
@@ -41,6 +56,14 @@ function App() {
   const [nextPlacementIndex, setNextPlacementIndex] = useState(0);
   const [fps, setFps] = useState(0);
   const orbitControlsRef = useRef<OrbitControlsImpl>(null);
+
+  // Stable point count that only changes when the atom changes (not every frame)
+  const pointCount = useMemo(() => {
+    if (moleculeMode && placedAtoms.length > 0) {
+      return placedAtoms.reduce((sum, p) => sum + estimatePointCount(p.atom), 0);
+    }
+    return estimatePointCount(selectedAtom);
+  }, [selectedAtom, moleculeMode, placedAtoms]);
 
   const handleSelectAtom = useCallback((atom: AtomData) => {
     setSelectedAtom(atom);
@@ -85,8 +108,7 @@ function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#050510' }}>
-      {/* FPS overlay - top right */}
-      <FPSOverlay fps={fps} />
+      <FPSOverlay fps={fps} pointCount={pointCount} />
 
       <Canvas
         camera={{
@@ -96,11 +118,11 @@ function App() {
           far: 500,
         }}
         gl={{
-          antialias: true,
+          antialias: false,  // MSAA disabled — redundant with post-processing buffer
           alpha: false,
           powerPreference: 'high-performance',
         }}
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}  // Cap at 1.5x — 2x is 4x fragment work for minimal visual gain
       >
         <color attach="background" args={['#050510']} />
 
