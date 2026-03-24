@@ -19,7 +19,7 @@ const phaseNegativeColors: Record<number, string> = {
   3: '#45b7d1', // f - blue for negative
 };
 
-// Vertex shader: GPU-based floating animation
+// Vertex shader: GPU-based subtle floating animation
 const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uAmplitude;
@@ -48,7 +48,7 @@ const vertexShader = /* glsl */ `
   }
 `;
 
-// Fragment shader: circular point sprites with soft glow
+// Fragment shader: solid circular points with soft edge
 const fragmentShader = /* glsl */ `
   varying vec3 vColor;
 
@@ -56,14 +56,13 @@ const fragmentShader = /* glsl */ `
     vec2 center = gl_PointCoord - vec2(0.5);
     float dist = length(center);
 
-    // Discard outside circle radius
+    // Discard outside circle
     if (dist > 0.5) discard;
 
-    // Soft glow falloff from center
-    float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-    alpha *= alpha; // quadratic falloff for softer glow
+    // Solid core with soft edge falloff — much more opaque than before
+    float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
 
-    gl_FragColor = vec4(vColor, alpha * 0.65);
+    gl_FragColor = vec4(vColor, alpha * 0.85);
   }
 `;
 
@@ -76,13 +75,12 @@ interface OrbitalCloudProps {
 export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: OrbitalCloudProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
 
-  // Higher point count for dense, solid-looking orbital lobes
-  const numPoints = pointCount ?? Math.max(1500, Math.min(5000, orbital.n * 1500));
+  // Many more points for dense, solid-looking orbital lobes
+  const numPoints = pointCount ?? Math.max(4000, Math.min(12000, orbital.n * 3000));
 
   const { geometry, amplitude, pointSize } = useMemo(() => {
     const { positions, phases } = generateOrbitalPoints(orbital, numPoints, offset);
 
-    // Generate per-point colors based on phase
     const colArray = new Float32Array(numPoints * 3);
     const posColor = new THREE.Color(phasePositiveColors[orbital.l] || '#ffffff');
     const negColor = new THREE.Color(phaseNegativeColors[orbital.l] || '#ffffff');
@@ -111,12 +109,13 @@ export function OrbitalCloud({ orbital, offset = [0, 0, 0], pointCount }: Orbita
     geo.setAttribute('randomOffset', new THREE.BufferAttribute(randOffsets, 3));
     geo.setAttribute('randomSpeed', new THREE.BufferAttribute(randSpeeds, 1));
 
-    // Larger point size so points overlap to form solid-looking regions
-    const sz = orbital.n === 1 ? 0.10 : orbital.n === 2 ? 0.12 : orbital.n === 3 ? 0.14 : 0.16;
-    // Very subtle animation amplitude — keeps lobes crisp while showing quantum "breathing"
-    const amp = 0.012 * orbital.n;
+    // Larger point sizes so points overlap and form solid-looking surfaces
+    const sz = orbital.n === 1 ? 0.18 : orbital.n === 2 ? 0.20 : orbital.n === 3 ? 0.22 : 0.24;
+    // Very subtle animation — keeps lobes crisp while feeling alive
+    const amp = 0.008 * orbital.n;
 
     return { geometry: geo, amplitude: amp, pointSize: sz };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orbital.n, orbital.l, orbital.m, numPoints, offset[0], offset[1], offset[2]]);
 
   // Only update the time uniform each frame — no per-point CPU work
