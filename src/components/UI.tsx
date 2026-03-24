@@ -111,29 +111,33 @@ export function UI({
         border: '1px solid rgba(255,255,255,0.08)',
         maxWidth: isMobile ? undefined : 280,
       }}>
-        {/* Mobile: collapsible header showing selected atom */}
+        {/* Mobile: collapsible header */}
         {isMobile ? (
           <div
             onClick={() => setSelectorExpanded(prev => !prev)}
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
               cursor: 'pointer',
               marginBottom: selectorExpanded ? 8 : 0,
+              padding: '2px 0',
+              gap: 6,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#4ecdc4' }}>
-                {selectedAtom.symbol}
-              </span>
-              <span style={{ fontSize: 12, color: '#888' }}>
-                {selectedAtom.name}
-              </span>
-            </div>
-            <span style={{ fontSize: 10, color: '#555' }}>
-              {selectorExpanded ? '▾' : '▸'} atoms
+            <span style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {selectorExpanded ? 'Close' : 'Select Atom'}
             </span>
+            <svg
+              width={12} height={12} viewBox="0 0 24 24" fill="none"
+              stroke="#666" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{
+                transform: selectorExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </div>
         ) : (
           <div style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -306,9 +310,21 @@ export function UI({
             {selectedAtom.name}
           </span>
           {isMobile && (
-            <span style={{ fontSize: 10, color: '#555', marginLeft: 'auto' }}>
-              {infoExpanded ? '▾' : '▸'} info
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+              <span style={{ fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                info
+              </span>
+              <svg
+                width={12} height={12} viewBox="0 0 24 24" fill="none"
+                stroke="#666" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{
+                  transform: infoExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           )}
         </div>
         {(!isMobile || infoExpanded) && (
