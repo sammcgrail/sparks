@@ -6,18 +6,24 @@ const MOVE_SPEED = 8;
 
 /**
  * WASD camera movement controls.
- * W/S = forward/backward, A/D = strafe left/right
- * Q/E = up/down
+ * W/S = move forward/backward along the ground plane (XZ)
+ * A/D = strafe (pan) left/right
+ * Q/Space = up, E/Shift = down
+ *
+ * Movement is projected onto the XZ plane so W never "zooms in"
+ * (which happens when the camera is angled downward and you move
+ * along the raw camera direction vector).
  */
 export function WASDControls() {
   const { camera } = useThree();
   const keys = useRef<Set<string>>(new Set());
-  const direction = useRef(new THREE.Vector3());
+  const forward = useRef(new THREE.Vector3());
   const right = useRef(new THREE.Vector3());
+  // Smooth velocity to eliminate the initial "bump" when starting movement
+  const velocity = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't capture if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       keys.current.add(e.key.toLowerCase());
     };
@@ -35,31 +41,41 @@ export function WASDControls() {
 
   useFrame((_, delta) => {
     const k = keys.current;
-    if (k.size === 0) return;
 
-    const speed = MOVE_SPEED * delta;
+    // Compute target velocity based on pressed keys
+    const targetVel = new THREE.Vector3();
 
-    // Get camera forward direction (projected to xz plane for FPS-style movement)
-    camera.getWorldDirection(direction.current);
-    right.current.crossVectors(direction.current, camera.up).normalize();
+    if (k.size > 0) {
+      // Get camera forward direction projected onto XZ plane (ground plane movement)
+      camera.getWorldDirection(forward.current);
+      forward.current.y = 0; // Project to ground plane
+      forward.current.normalize();
 
-    if (k.has('w')) {
-      camera.position.addScaledVector(direction.current, speed);
+      // Right vector is perpendicular to forward on the ground plane
+      right.current.crossVectors(forward.current, camera.up).normalize();
+
+      const speed = MOVE_SPEED;
+
+      // W/S = forward/backward along XZ ground plane (not into the ground)
+      if (k.has('w')) targetVel.addScaledVector(forward.current, speed);
+      if (k.has('s')) targetVel.addScaledVector(forward.current, -speed);
+
+      // A/D = strafe left/right
+      if (k.has('a')) targetVel.addScaledVector(right.current, -speed);
+      if (k.has('d')) targetVel.addScaledVector(right.current, speed);
+
+      // Q/Space = up, E/Shift = down
+      if (k.has('q') || k.has(' ')) targetVel.y += speed;
+      if (k.has('e') || k.has('shift')) targetVel.y -= speed;
     }
-    if (k.has('s')) {
-      camera.position.addScaledVector(direction.current, -speed);
-    }
-    if (k.has('a')) {
-      camera.position.addScaledVector(right.current, -speed);
-    }
-    if (k.has('d')) {
-      camera.position.addScaledVector(right.current, speed);
-    }
-    if (k.has('q') || k.has(' ')) {
-      camera.position.y += speed;
-    }
-    if (k.has('e') || k.has('shift')) {
-      camera.position.y -= speed;
+
+    // Smooth interpolation toward target velocity (eliminates initial bump)
+    const smoothing = 1 - Math.exp(-12 * delta); // ~12Hz smoothing
+    velocity.current.lerp(targetVel, smoothing);
+
+    // Apply velocity
+    if (velocity.current.lengthSq() > 0.001) {
+      camera.position.addScaledVector(velocity.current, delta);
     }
   });
 
